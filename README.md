@@ -46,6 +46,8 @@ cp .env.example .env
 # Set BIND_UID / BIND_GID to the host user that owns config and data volumes.
 # named.conf (+ optional TSIG/DDNS includes) -> BIND_CONFIG_DIR  (/etc/bind)
 # DoT/DoH/rndc PEM material                 -> BIND_CERT_DIR     (/etc/bind/certs)
+# Nested cert mount needs a mountpoint on the config tree:
+mkdir -p config/bind/certs certs/bind
 docker compose up -d
 ```
 

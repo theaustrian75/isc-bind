@@ -38,7 +38,7 @@ RUN apk add --no-cache \
     && test "$(id -u named)" = "${BIND_UID}" \
     && test "$(id -g named)" = "${BIND_GID}" \
     && apk del .account-tools \
-    && mkdir -p /etc/bind /var/cache/bind /var/lib/bind /var/log/bind /run/named \
+    && mkdir -p /etc/bind /etc/bind/certs /var/cache/bind /var/lib/bind /var/log/bind /run/named \
     && chown -R "${BIND_UID}:${BIND_GID}" /var/cache/bind /var/lib/bind /var/log/bind /run/named \
     && chmod 0750 /run/named \
     # Alpine bind.post-install runs rndc-confgen -a; drop that secret from the image.

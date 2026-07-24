@@ -85,9 +85,10 @@ assert_failure "TZ must be an installed IANA timezone" \
   docker run --rm -e 'TZ=America/New York' \
   -v "$ROOT/tests/fixtures/named.conf:/etc/bind/named.conf:ro" "$IMAGE"
 
-mkdir -p "$TMP_ROOT/etc" "$TMP_ROOT/certs"
+# Nested /etc/bind/certs mount needs a mountpoint inside the RO config tree.
+mkdir -p "$TMP_ROOT/etc" "$TMP_ROOT/etc/certs" "$TMP_ROOT/certs"
 cp "$ROOT/tests/fixtures/named.conf" "$TMP_ROOT/etc/named.conf"
-chmod 755 "$TMP_ROOT" "$TMP_ROOT/etc" "$TMP_ROOT/certs"
+chmod 755 "$TMP_ROOT" "$TMP_ROOT/etc" "$TMP_ROOT/etc/certs" "$TMP_ROOT/certs"
 chmod 644 "$TMP_ROOT/etc/named.conf"
 
 # no-new-privileges omitted: ambient NET_BIND_SERVICE after setpriv uid drop.
