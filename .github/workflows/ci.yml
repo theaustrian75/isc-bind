@@ -1,0 +1,175 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install ShellCheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes shellcheck
+
+      - name: Check shell scripts
+        run: |
+          shellcheck entrypoint.sh healthcheck.sh
+          shellcheck tests/*.sh
+
+      - name: Validate Compose configuration
+        run: |
+          docker compose --env-file .env.example config --format json > /tmp/compose-config.json
+          jq -e '
+            .services["bind9"].container_name == "bind9-env-test"
+            and .services["bind9"].image == "isc-bind/bind9:test"
+            and .services["bind9"].read_only == true
+            and .services["bind9"].network_mode == "host"
+            and .services["bind9"].environment.BIND_UID == "12345"
+            and .services["bind9"].environment.BIND_GID == "12346"
+            and any(.services["bind9"].cap_drop[]; . == "ALL")
+            and any(.services["bind9"].cap_add[]; . == "NET_BIND_SERVICE")
+            and any(.services["bind9"].cap_add[]; . == "SETUID")
+            and any(.services["bind9"].cap_add[]; . == "SETGID")
+            and any(
+              .services["bind9"].volumes[];
+              .source == "/tmp/bind-config-test"
+              and .target == "/etc/bind"
+              and .read_only == true
+            )
+            and any(
+              .services["bind9"].volumes[];
+              .source == "/tmp/bind-cert-test"
+              and .target == "/etc/bind/certs"
+              and .read_only == true
+            )
+          ' /tmp/compose-config.json
+
+      - name: Build image
+        run: docker build --tag isc-bind/bind9:test --file Dockerfile.bind9 .
+
+      - name: Run container smoke tests
+        run: |
+          chmod +x tests/*.sh entrypoint.sh healthcheck.sh
+          tests/test-container.sh isc-bind/bind9:test
+
+      - name: Validate example configs (named-checkconf)
+        run: tests/test-named-checkconf.sh isc-bind/bind9:test
+
+  docker:
+    runs-on: ${{ matrix.runner }}
+    needs: validate
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: bind9
+            dockerfile: Dockerfile.bind9
+            description: ISC BIND 9 DNS (Do53 / DoT / DoH capable)
+            platform: linux/amd64
+            runner: ubuntu-24.04
+            arch: amd64
+          - image: bind9
+            dockerfile: Dockerfile.bind9
+            description: ISC BIND 9 DNS (Do53 / DoT / DoH capable)
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            arch: arm64
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository }}/${{ matrix.image }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=tag
+            type=sha
+            type=raw,value=latest,enable={{is_default_branch}}
+          flavor: suffix=-${{ matrix.arch }}
+          labels: |
+            org.opencontainers.image.description=${{ matrix.description }}
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          platforms: ${{ matrix.platform }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: false
+          sbom: false
+          outputs: ${{ github.event_name != 'pull_request' && 'type=registry,oci-mediatypes=false' || 'type=image,oci-mediatypes=false' }}
+          annotations: |
+            manifest:org.opencontainers.image.description=${{ matrix.description }}
+
+  docker-merge:
+    runs-on: ubuntu-24.04
+    needs: docker
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository }}/bind9
+          tags: |
+            type=ref,event=branch
+            type=ref,event=tag
+            type=sha
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Create and push multi-arch manifest
+        env:
+          DOCKER_METADATA_OUTPUT_JSON: ${{ steps.meta.outputs.json }}
+          IMAGE_DESCRIPTION: ISC BIND 9 DNS (Do53 / DoT / DoH capable)
+        run: |
+          set -euo pipefail
+          jq -cr '.tags[]' <<< "$DOCKER_METADATA_OUTPUT_JSON" | while read -r tag; do
+            repo="${tag%%:*}"
+            name="${tag##*:}"
+            docker buildx imagetools create \
+              --annotation "index:org.opencontainers.image.description=${IMAGE_DESCRIPTION}" \
+              -t "$tag" \
+              "${repo}:${name}-amd64" \
+              "${repo}:${name}-arm64"
+          done

@@ -1,0 +1,61 @@
+# Local / lab compose for the ISC BIND 9 image.
+# Config, TSIG, and TLS material are bind-mounted; nothing secret is baked into images.
+#
+#   cp .env.example .env
+#   cp config/examples/named.conf config/bind/named.conf
+#   docker compose build
+#   docker compose up -d
+
+name: isc-bind
+
+services:
+  bind9:
+    image: ${BIND9_IMAGE:-ghcr.io/theaustrian75/isc-bind/bind9:latest}
+    build:
+      context: .
+      dockerfile: Dockerfile.bind9
+      args:
+        BIND_UID: ${BIND_UID:-20002}
+        BIND_GID: ${BIND_GID:-20002}
+    container_name: ${BIND9_CONTAINER_NAME:-bind9}
+    environment:
+      BIND_UID: ${BIND_UID:-20002}
+      BIND_GID: ${BIND_GID:-20002}
+      TZ: ${TZ:-UTC}
+      SKIP_CONFIG_TEST: ${SKIP_CONFIG_TEST:-false}
+      BIND_CONFIG: ${BIND_CONFIG:-/etc/bind/named.conf}
+      BIND_LOG_FILE: ${BIND_LOG_FILE:-}
+      BIND_HEALTHCHECK_SERVER: ${BIND_HEALTHCHECK_SERVER:-127.0.0.1}
+      BIND_HEALTHCHECK_PORT: ${BIND_HEALTHCHECK_PORT:-53}
+      BIND_HEALTHCHECK_QNAME: ${BIND_HEALTHCHECK_QNAME:-hostname.bind}
+      BIND_HEALTHCHECK_QTYPE: ${BIND_HEALTHCHECK_QTYPE:-TXT}
+      BIND_HEALTHCHECK_CLASS: ${BIND_HEALTHCHECK_CLASS:-CH}
+    read_only: true
+    # Do not set no-new-privileges: entrypoint raises ambient NET_BIND_SERVICE
+    # so it survives setpriv uid drop + exec (needed for UDP/TCP 53).
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+      - NET_BIND_SERVICE
+    volumes:
+      - ${BIND_CONFIG_DIR:-./config/bind}:/etc/bind:ro
+      # Optional DoT/DoH/rndc certs (nested mount over the config tree).
+      - ${BIND_CERT_DIR:-./certs/bind}:/etc/bind/certs:ro
+      - bind9-cache:/var/cache/bind
+      - bind9-data:/var/lib/bind
+      - bind9-log:/var/log/bind
+    # Compose/Docker mount API rejects tmpfs uid=/gid=; entrypoint chowns with CAP_CHOWN.
+    tmpfs:
+      - /run/named:rw,mode=0750,size=16m
+      - /tmp:rw,mode=1777,size=16m
+    network_mode: host
+    restart: unless-stopped
+
+volumes:
+  bind9-cache:
+  bind9-data:
+  bind9-log:

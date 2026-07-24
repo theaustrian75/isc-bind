@@ -1,35 +1,55 @@
-FROM alpine:latest
-LABEL org.opencontainers.image.authors="admin@klausk.xyz"
+# Alpine-based ISC BIND 9 (multi-arch: amd64/arm64)
+FROM alpine:3.24.1
 
-# Create user on the host side with:
-#   addgroup --gid 20002 podman-bind && adduser --uid 20002 --ingroup podman-bind --home /tmp --no-create-home --disabled-password --disabled-login --comment "Podman - ISC Bind9" podman-bind
+LABEL org.opencontainers.image.authors="admin@klausk.xyz" \
+      org.opencontainers.image.title="bind9" \
+      org.opencontainers.image.description="ISC BIND 9 DNS (Do53 / DoT / DoH capable)"
 
-# Configurable Build Arguments for UID/GID
+# Host-side matching user (example):
+#   addgroup --gid 20002 podman-bind && adduser --uid 20002 --ingroup podman-bind \
+#     --home /tmp --no-create-home --disabled-password --disabled-login \
+#     --comment "Podman - ISC Bind9" podman-bind
+
 ARG BIND_UID=20002
 ARG BIND_GID=20002
 
-RUN apk --no-cache update
-RUN apk --no-cache upgrade
+ENV BIND_UID="${BIND_UID}" \
+    BIND_GID="${BIND_GID}" \
+    TZ=UTC \
+    SKIP_CONFIG_TEST=false \
+    BIND_CONFIG=/etc/bind/named.conf
 
-RUN apk --no-cache add \
+RUN apk add --no-cache \
         bind \
         bind-tools \
         bind-plugins \
         bind-dnssec-root \
         bind-dnssec-tools \
-        tzdata
+        tzdata \
+        util-linux \
+    && apk add --no-cache --virtual .account-tools shadow \
+    && if ! awk -F: -v gid="${BIND_GID}" '$3 == gid { found = 1 } END { exit !found }' /etc/group; then \
+         groupmod -g "${BIND_GID}" named; \
+       fi \
+    && usermod -u "${BIND_UID}" -g "${BIND_GID}" named \
+    && test "$(id -u named)" = "${BIND_UID}" \
+    && test "$(id -g named)" = "${BIND_GID}" \
+    && apk del .account-tools \
+    && mkdir -p /etc/bind /var/cache/bind /var/lib/bind /var/log/bind /run/named \
+    && chown -R "${BIND_UID}:${BIND_GID}" /var/cache/bind /var/lib/bind /var/log/bind /run/named \
+    && chmod 0750 /run/named
 
-# Remove default 'named' user and recreate with custom IDs
-RUN deluser named && \
-    addgroup -g ${BIND_GID} -S named && \
-    adduser -u ${BIND_UID} -S -G named -h /etc/bind -s /sbin/nologin named
+COPY --chmod=0755 entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY --chmod=0755 healthcheck.sh /usr/local/bin/healthcheck.sh
 
-VOLUME ["/etc/bind", "/var/cache/bind", "/var/lib/bind", "/var/log/bind"]
+# named.conf, TSIG keys, and optional TLS material are mounted at runtime —
+# never bake secrets into the image.
+VOLUME [ "/etc/bind", "/var/cache/bind", "/var/lib/bind", "/var/log/bind", "/run/named" ]
 
-# Ensure correct permissions for BIND directories
-RUN chown -R named:named /etc/bind /var/cache/bind /var/lib/bind /var/log/bind /var/run/named
+EXPOSE 53/udp 53/tcp 853/tcp 443/tcp 953/tcp
 
-EXPOSE 53/udp 53/tcp 953/tcp 853/tcp 443/tcp
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD ["/usr/local/bin/healthcheck.sh"]
 
-ENTRYPOINT ["/usr/sbin/named", "-u", "named"]
-CMD ["-f", "-c", "/etc/bind/named.conf", "-L", "/var/log/bind/default.log"]
+# Start as root so the entrypoint can chown runtime dirs, then drop via setpriv.
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

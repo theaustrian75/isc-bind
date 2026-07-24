@@ -1,0 +1,28 @@
+# Optional DDNS fragment — copy into BIND_CONFIG_DIR and include from named.conf
+# after installing the TSIG key (never commit real key files).
+#
+#   cp config/examples/ddns-tsig.key.example config/bind/ddns-tsig.key
+#   cp config/examples/named.conf.ddns.example config/bind/named.conf.ddns
+#   # paste real secret into ddns-tsig.key, then:
+#   # include "/etc/bind/named.conf.ddns";
+
+include "/etc/bind/ddns-tsig.key";
+
+# Prefer update-policy (TSIG-scoped) over allow-update { any; }.
+# Match the key name to Kea's dhcp-ddns / nsupdate client.
+
+zone "example.com" {
+	type primary;
+	file "/var/lib/bind/db.example.com";
+	update-policy {
+		grant dhcp-ddns zonesub ANY;
+	};
+};
+
+zone "1.168.192.in-addr.arpa" {
+	type primary;
+	file "/var/lib/bind/db.192.168.1";
+	update-policy {
+		grant dhcp-ddns zonesub ANY;
+	};
+};

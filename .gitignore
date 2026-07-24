@@ -17,8 +17,20 @@ rndc.key
 *.tsig
 session.key
 
+# Dynamic DNS update secrets (often plain .conf with inline HMAC secrets)
+keys.conf
+**/keys.conf
+named.conf.keys
+**/named.conf.keys
+named.conf.ddns
+**/named.conf.ddns
+ddns.key
+dhcp-ddns.key
+tsig.key
+*.keyfile
+nsupdate.keys
+
 # TLS / DoT / DoH material (runtime mounts)
-/certs/
 /tls/
 *.csr
 
@@ -27,12 +39,18 @@ session.key
 .env.*
 !.env.example
 
-# Site-specific runtime config (keep examples + placeholder tracked)
+# Site-specific runtime config / certs (keep examples + placeholders tracked)
 /config/bind/**
 !/config/bind/.gitignore
 !/config/bind/README.md
 !/config/examples/
 !/config/examples/**
+/certs/**
+!/certs/bind/
+!/certs/bind/.gitignore
+!/certs/bind/README.md
+!/config/examples/certs/
+!/config/examples/certs/**
 
 # Local / editor
 .DS_Store
