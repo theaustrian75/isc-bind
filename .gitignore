@@ -1,0 +1,45 @@
+# Private key material — never commit
+*.key
+*.p12
+*.pfx
+*.pem
+*.crt
+!*.example.crt
+
+# BIND DNSSEC key pairs (K<name>+<alg>+<id>)
+K*.key
+K*.private
+K*.state
+*.private
+
+# TSIG / session / control channel
+rndc.key
+*.tsig
+session.key
+
+# TLS / DoT / DoH material (runtime mounts)
+/certs/
+/tls/
+*.csr
+
+# Local env with registry credentials / overrides
+.env
+.env.*
+!.env.example
+
+# Site-specific runtime config (keep examples + placeholder tracked)
+/config/bind/**
+!/config/bind/.gitignore
+!/config/bind/README.md
+!/config/examples/
+!/config/examples/**
+
+# Local / editor
+.DS_Store
+*.swp
+*~
+*.log
+
+# Build artifacts
+*.tar
+*.tar.gz

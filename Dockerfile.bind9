@@ -1,0 +1,35 @@
+FROM alpine:latest
+LABEL org.opencontainers.image.authors="admin@klausk.xyz"
+
+# Create user on the host side with:
+#   addgroup --gid 20002 podman-bind && adduser --uid 20002 --ingroup podman-bind --home /tmp --no-create-home --disabled-password --disabled-login --comment "Podman - ISC Bind9" podman-bind
+
+# Configurable Build Arguments for UID/GID
+ARG BIND_UID=20002
+ARG BIND_GID=20002
+
+RUN apk --no-cache update
+RUN apk --no-cache upgrade
+
+RUN apk --no-cache add \
+        bind \
+        bind-tools \
+        bind-plugins \
+        bind-dnssec-root \
+        bind-dnssec-tools \
+        tzdata
+
+# Remove default 'named' user and recreate with custom IDs
+RUN deluser named && \
+    addgroup -g ${BIND_GID} -S named && \
+    adduser -u ${BIND_UID} -S -G named -h /etc/bind -s /sbin/nologin named
+
+VOLUME ["/etc/bind", "/var/cache/bind", "/var/lib/bind", "/var/log/bind"]
+
+# Ensure correct permissions for BIND directories
+RUN chown -R named:named /etc/bind /var/cache/bind /var/lib/bind /var/log/bind /var/run/named
+
+EXPOSE 53/udp 53/tcp 953/tcp 853/tcp 443/tcp
+
+ENTRYPOINT ["/usr/sbin/named", "-u", "named"]
+CMD ["-f", "-c", "/etc/bind/named.conf", "-L", "/var/log/bind/default.log"]
