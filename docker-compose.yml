@@ -15,12 +15,12 @@ services:
       context: .
       dockerfile: Dockerfile.bind9
       args:
-        BIND_UID: ${BIND_UID:-20002}
-        BIND_GID: ${BIND_GID:-20002}
+        BIND_UID: ${BIND_UID:-100}
+        BIND_GID: ${BIND_GID:-101}
     container_name: ${BIND9_CONTAINER_NAME:-bind9}
     environment:
-      BIND_UID: ${BIND_UID:-20002}
-      BIND_GID: ${BIND_GID:-20002}
+      BIND_UID: ${BIND_UID:-100}
+      BIND_GID: ${BIND_GID:-101}
       TZ: ${TZ:-UTC}
       SKIP_CONFIG_TEST: ${SKIP_CONFIG_TEST:-false}
       BIND_CONFIG: ${BIND_CONFIG:-/etc/bind/named.conf}

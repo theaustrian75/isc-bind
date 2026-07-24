@@ -5,13 +5,16 @@ LABEL org.opencontainers.image.authors="admin@klausk.xyz" \
       org.opencontainers.image.title="bind9" \
       org.opencontainers.image.description="ISC BIND 9 DNS (Do53 / DoT / DoH capable)"
 
-# Host-side matching user (example):
+# Defaults match Alpine-style numeric IDs (same idea as isc-kea). Override at
+# build (--build-arg) and/or runtime (-e BIND_UID / BIND_GID / compose .env).
+# Runtime setpriv uses the env values; rebuild is optional if you only need a
+# different process identity. Example host user for volume ownership:
 #   addgroup --gid 20002 podman-bind && adduser --uid 20002 --ingroup podman-bind \
 #     --home /tmp --no-create-home --disabled-password --disabled-login \
 #     --comment "Podman - ISC Bind9" podman-bind
 
-ARG BIND_UID=20002
-ARG BIND_GID=20002
+ARG BIND_UID=100
+ARG BIND_GID=101
 
 ENV BIND_UID="${BIND_UID}" \
     BIND_GID="${BIND_GID}" \

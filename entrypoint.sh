@@ -3,8 +3,8 @@
 # BIND_UID/BIND_GID are overridable at runtime; config is bind-mounted at /etc/bind.
 set -eu
 
-BIND_UID="${BIND_UID:-20002}"
-BIND_GID="${BIND_GID:-20002}"
+BIND_UID="${BIND_UID:-100}"
+BIND_GID="${BIND_GID:-101}"
 TZ="${TZ:-UTC}"
 SKIP_CONFIG_TEST="${SKIP_CONFIG_TEST:-false}"
 BIND_CONFIG="${BIND_CONFIG:-/etc/bind/named.conf}"

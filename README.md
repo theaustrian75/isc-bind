@@ -14,8 +14,8 @@ Build args / runtime env:
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `BIND_UID` | `20002` | Numeric UID after privilege drop |
-| `BIND_GID` | `20002` | Numeric GID after privilege drop |
+| `BIND_UID` | `100` | Numeric UID after privilege drop (override via `.env` / `-e`; rebuild optional) |
+| `BIND_GID` | `101` | Numeric GID after privilege drop (override via `.env` / `-e`; rebuild optional) |
 | `TZ` | `UTC` | IANA timezone |
 | `SKIP_CONFIG_TEST` | `false` | Skip `named-checkconf -z` before start |
 | `BIND_CONFIG` | `/etc/bind/named.conf` | Main config path inside the container |
@@ -43,10 +43,13 @@ CI mirrors [isc-kea](https://github.com/theaustrian75/isc-kea): validate → per
 
 ```bash
 cp .env.example .env
+# Set BIND_UID / BIND_GID to the host user that owns config and data volumes.
 # named.conf (+ optional TSIG/DDNS includes) -> BIND_CONFIG_DIR  (/etc/bind)
 # DoT/DoH/rndc PEM material                 -> BIND_CERT_DIR     (/etc/bind/certs)
 docker compose up -d
 ```
+
+`BIND_UID` / `BIND_GID` are applied at runtime by `setpriv` (and as compose build-args when you rebuild). Pulling a GHCR image is enough — set the env vars; you do not need a custom image per UID.
 
 Quadlet unit: `bind9.container` (set `User=0` so the entrypoint can chown, then drops to `BIND_UID`/`BIND_GID`). Quadlet `Tmpfs=` may set `uid`/`gid` to match; Compose cannot (Docker rejects those options), so compose relies on entrypoint `chown`. Do **not** set `NoNewPrivileges` / `no-new-privileges` (ambient `NET_BIND_SERVICE`).
 
