@@ -93,7 +93,7 @@ chown "${BIND_UID}:${BIND_GID}" /run/named /var/cache/bind /var/lib/bind /var/lo
 
 if [ "$SKIP_CONFIG_TEST" = false ]; then
   if ! setpriv --reuid="$BIND_UID" --regid="$BIND_GID" --clear-groups -- \
-    /usr/sbin/named-checkconf -z "$BIND_CONFIG"; then
+    /usr/bin/named-checkconf -z "$BIND_CONFIG"; then
     echo "Configuration check failed for $BIND_CONFIG" >&2
     exit 1
   fi

@@ -45,9 +45,12 @@ docker image inspect "$IMAGE" |
 
 # Public DNSKEY trust anchors may ship as *.key (bind-dnssec-root); only fail on
 # private material that must never be baked into the image.
-if docker run --rm --entrypoint /bin/sh "$IMAGE" -c \
-  'find / \( -name "*.private" -o -name "rndc.key" -o -name "session.key" -o -name "*.p12" -o -name "*.pfx" \) 2>/dev/null | grep -q .'; then
-  echo "ERROR: private key / control-channel material found inside image" >&2
+# Alpine's bind.post-install generates /etc/bind/rndc.key — the Dockerfile removes it.
+matches=$(docker run --rm --entrypoint /bin/sh "$IMAGE" -c \
+  'find / \( -name "*.private" -o -name "rndc.key" -o -name "session.key" -o -name "*.p12" -o -name "*.pfx" \) 2>/dev/null') || exit 1
+if [ -n "$matches" ]; then
+  echo "ERROR: private key / control-channel material found inside image:" >&2
+  printf '%s\n' "$matches" >&2
   exit 1
 fi
 
@@ -82,9 +85,10 @@ assert_failure "TZ must be an installed IANA timezone" \
   docker run --rm -e 'TZ=America/New York' \
   -v "$ROOT/tests/fixtures/named.conf:/etc/bind/named.conf:ro" "$IMAGE"
 
-mkdir -p "$TMP_ROOT/etc" "$TMP_ROOT/certs"
+# Nested /etc/bind/certs mount needs a mountpoint inside the RO config tree.
+mkdir -p "$TMP_ROOT/etc" "$TMP_ROOT/etc/certs" "$TMP_ROOT/certs"
 cp "$ROOT/tests/fixtures/named.conf" "$TMP_ROOT/etc/named.conf"
-chmod 755 "$TMP_ROOT" "$TMP_ROOT/etc" "$TMP_ROOT/certs"
+chmod 755 "$TMP_ROOT" "$TMP_ROOT/etc" "$TMP_ROOT/etc/certs" "$TMP_ROOT/certs"
 chmod 644 "$TMP_ROOT/etc/named.conf"
 
 # no-new-privileges omitted: ambient NET_BIND_SERVICE after setpriv uid drop.
