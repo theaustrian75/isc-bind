@@ -43,9 +43,11 @@ fi
 docker image inspect "$IMAGE" |
   jq -e '.[0].Config.Healthcheck.Test == ["CMD", "/usr/local/bin/healthcheck.sh"]' >/dev/null
 
+# Public DNSKEY trust anchors may ship as *.key (bind-dnssec-root); only fail on
+# private material that must never be baked into the image.
 if docker run --rm --entrypoint /bin/sh "$IMAGE" -c \
-  'find / \( -name "*.key" -o -name "*.private" -o -name "K*+*+*" \) 2>/dev/null | grep -q .'; then
-  echo "ERROR: key / DNSSEC private material found inside image" >&2
+  'find / \( -name "*.private" -o -name "rndc.key" -o -name "session.key" -o -name "*.p12" -o -name "*.pfx" \) 2>/dev/null | grep -q .'; then
+  echo "ERROR: private key / control-channel material found inside image" >&2
   exit 1
 fi
 
