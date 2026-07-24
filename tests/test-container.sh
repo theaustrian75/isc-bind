@@ -46,13 +46,12 @@ docker image inspect "$IMAGE" |
 # Public DNSKEY trust anchors may ship as *.key (bind-dnssec-root); only fail on
 # private material that must never be baked into the image.
 # Alpine's bind.post-install generates /etc/bind/rndc.key — the Dockerfile removes it.
-if matches=$(docker run --rm --entrypoint /bin/sh "$IMAGE" -c \
-  'find / \( -name "*.private" -o -name "rndc.key" -o -name "session.key" -o -name "*.p12" -o -name "*.pfx" \) 2>/dev/null'); then
-  if [ -n "$matches" ]; then
-    echo "ERROR: private key / control-channel material found inside image:" >&2
-    printf '%s\n' "$matches" >&2
-    exit 1
-  fi
+matches=$(docker run --rm --entrypoint /bin/sh "$IMAGE" -c \
+  'find / \( -name "*.private" -o -name "rndc.key" -o -name "session.key" -o -name "*.p12" -o -name "*.pfx" \) 2>/dev/null') || exit 1
+if [ -n "$matches" ]; then
+  echo "ERROR: private key / control-channel material found inside image:" >&2
+  printf '%s\n' "$matches" >&2
+  exit 1
 fi
 
 assert_failure() {
