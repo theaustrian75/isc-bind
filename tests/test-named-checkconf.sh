@@ -49,7 +49,7 @@ docker run --rm \
   -v "$TMP/etc:/etc/bind:ro" \
   -v "$TMP/lib:/var/lib/bind" \
   -v "$TMP/cache:/var/cache/bind" \
-  --entrypoint /usr/sbin/named-checkconf \
+  --entrypoint /usr/bin/named-checkconf \
   "$IMAGE" -z /etc/bind/named.conf
 
 echo "Example named-checkconf passed"
