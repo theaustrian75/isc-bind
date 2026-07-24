@@ -35,8 +35,8 @@ echo "    version: $version"
 
 default_settings=$(docker run --rm --entrypoint /bin/sh "$IMAGE" \
   -c 'printf "%s:%s %s" "$BIND_UID" "$BIND_GID" "$TZ"')
-if [ "$default_settings" != "20002:20002 UTC" ]; then
-  echo "Expected defaults '20002:20002 UTC', got '$default_settings'" >&2
+if [ "$default_settings" != "100:101 UTC" ]; then
+  echo "Expected defaults '100:101 UTC', got '$default_settings'" >&2
   exit 1
 fi
 
