@@ -40,7 +40,10 @@ RUN apk add --no-cache \
     && apk del .account-tools \
     && mkdir -p /etc/bind /var/cache/bind /var/lib/bind /var/log/bind /run/named \
     && chown -R "${BIND_UID}:${BIND_GID}" /var/cache/bind /var/lib/bind /var/log/bind /run/named \
-    && chmod 0750 /run/named
+    && chmod 0750 /run/named \
+    # Alpine bind.post-install runs rndc-confgen -a; drop that secret from the image.
+    # Mount a host rndc.key under /etc/bind at runtime if you need rndc.
+    && rm -f /etc/bind/rndc.key
 
 COPY --chmod=0755 entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY --chmod=0755 healthcheck.sh /usr/local/bin/healthcheck.sh

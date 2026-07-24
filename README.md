@@ -72,7 +72,7 @@ Never commit `ddns-tsig.key`, `keys.conf`, or `named.conf.keys` (gitignored).
 
 | Path | Purpose |
 |---|---|
-| `/etc/bind` | `named.conf` + includes / TSIG (RO mount) |
+| `/etc/bind` | `named.conf` + includes / TSIG / optional `rndc.key` (RO mount; image ships none) |
 | `/etc/bind/certs` | Optional TLS PEMs for DoT/DoH (nested RO mount) |
 | `/var/cache/bind` | Working directory / cache |
 | `/var/lib/bind` | Zone files / journals |
