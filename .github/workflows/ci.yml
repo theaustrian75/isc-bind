@@ -58,6 +58,21 @@ jobs:
               and .target == "/etc/bind/certs"
               and .read_only == true
             )
+            and any(
+              .services["bind9"].volumes[];
+              .source == "/tmp/bind-cache-test"
+              and .target == "/var/cache/bind"
+            )
+            and any(
+              .services["bind9"].volumes[];
+              .source == "/tmp/bind-data-test"
+              and .target == "/var/lib/bind"
+            )
+            and any(
+              .services["bind9"].volumes[];
+              .source == "/tmp/bind-log-test"
+              and .target == "/var/log/bind"
+            )
           ' /tmp/compose-config.json
 
       - name: Build image

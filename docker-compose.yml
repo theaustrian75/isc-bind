@@ -3,6 +3,7 @@
 #
 #   cp .env.example .env
 #   cp config/examples/named.conf config/bind/named.conf
+#   mkdir -p config/bind/certs
 #   docker compose build
 #   docker compose up -d
 
@@ -43,11 +44,12 @@ services:
       - NET_BIND_SERVICE
     volumes:
       - ${BIND_CONFIG_DIR:-./config/bind}:/etc/bind:ro
-      # Optional DoT/DoH/rndc certs (nested mount over the config tree).
+      # Nested cert mount: ensure BIND_CONFIG_DIR/certs exists as a mountpoint.
       - ${BIND_CERT_DIR:-./certs/bind}:/etc/bind/certs:ro
-      - bind9-cache:/var/cache/bind
-      - bind9-data:/var/lib/bind
-      - bind9-log:/var/log/bind
+      # Host path or named volume (a plain name without '/' is a named volume).
+      - ${BIND_CACHE_DIR:-bind9-cache}:/var/cache/bind
+      - ${BIND_DATA_DIR:-bind9-data}:/var/lib/bind
+      - ${BIND_LOG_DIR:-bind9-log}:/var/log/bind
     # Compose/Docker mount API rejects tmpfs uid=/gid=; entrypoint chowns with CAP_CHOWN.
     tmpfs:
       - /run/named:rw,mode=0750,size=16m
@@ -55,6 +57,8 @@ services:
     network_mode: host
     restart: unless-stopped
 
+# Declared so the default BIND_*_DIR named-volume values resolve.
+# Unused when those env vars point at host paths instead.
 volumes:
   bind9-cache:
   bind9-data:
