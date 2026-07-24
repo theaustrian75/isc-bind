@@ -26,7 +26,7 @@ Build args / runtime env:
 | `BIND_HEALTHCHECK_QTYPE` | `TXT` | Healthcheck type |
 | `BIND_HEALTHCHECK_CLASS` | `CH` | Healthcheck class (CHAOS) |
 
-Compose-only host paths: `BIND_CONFIG_DIR`, `BIND_CERT_DIR`, `BIND9_IMAGE`, `BIND9_CONTAINER_NAME`.
+Compose-only host paths / volume sources: `BIND_CONFIG_DIR`, `BIND_CERT_DIR`, `BIND_CACHE_DIR`, `BIND_DATA_DIR`, `BIND_LOG_DIR`, `BIND9_IMAGE`, `BIND9_CONTAINER_NAME`.
 
 ## Build & test
 
@@ -46,12 +46,15 @@ cp .env.example .env
 # Set BIND_UID / BIND_GID to the host user that owns config and data volumes.
 # named.conf (+ optional TSIG/DDNS includes) -> BIND_CONFIG_DIR  (/etc/bind)
 # DoT/DoH/rndc PEM material                 -> BIND_CERT_DIR     (/etc/bind/certs)
+# cache / zones / logs                      -> BIND_CACHE_DIR, BIND_DATA_DIR, BIND_LOG_DIR
 # Nested cert mount needs a mountpoint on the config tree:
 mkdir -p config/bind/certs certs/bind
 docker compose up -d
 ```
 
 `BIND_UID` / `BIND_GID` are applied at runtime by `setpriv` (and as compose build-args when you rebuild). Pulling a GHCR image is enough — set the env vars; you do not need a custom image per UID.
+
+Volume env vars accept a **host path** or a **named volume** (plain name with no `/`). Defaults: `bind9-cache`, `bind9-data`, `bind9-log`.
 
 Quadlet unit: `bind9.container` (set `User=0` so the entrypoint can chown, then drops to `BIND_UID`/`BIND_GID`). Quadlet `Tmpfs=` may set `uid`/`gid` to match; Compose cannot (Docker rejects those options), so compose relies on entrypoint `chown`. Do **not** set `NoNewPrivileges` / `no-new-privileges` (ambient `NET_BIND_SERVICE`).
 
@@ -72,11 +75,11 @@ Never commit `ddns-tsig.key`, `keys.conf`, or `named.conf.keys` (gitignored).
 
 ## Runtime volumes
 
-| Path | Purpose |
-|---|---|
-| `/etc/bind` | `named.conf` + includes / TSIG / optional `rndc.key` (RO mount; image ships none) |
-| `/etc/bind/certs` | Optional TLS PEMs for DoT/DoH (nested RO mount) |
-| `/var/cache/bind` | Working directory / cache |
-| `/var/lib/bind` | Zone files / journals |
-| `/var/log/bind` | File logs when `BIND_LOG_FILE` is set |
-| `/run/named` | Runtime (tmpfs) |
+| Path | Env (compose) | Purpose |
+|---|---|---|
+| `/etc/bind` | `BIND_CONFIG_DIR` | `named.conf` + includes / TSIG / optional `rndc.key` (RO; image ships none) |
+| `/etc/bind/certs` | `BIND_CERT_DIR` | Optional TLS PEMs for DoT/DoH (nested RO mount) |
+| `/var/cache/bind` | `BIND_CACHE_DIR` | Working directory / cache |
+| `/var/lib/bind` | `BIND_DATA_DIR` | Zone files / journals |
+| `/var/log/bind` | `BIND_LOG_DIR` | File logs when `BIND_LOG_FILE` is set |
+| `/run/named` | _(tmpfs)_ | Runtime |
