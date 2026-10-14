@@ -1,5 +1,5 @@
 # Alpine-based ISC BIND 9 (multi-arch: amd64/arm64)
-FROM alpine:3.24.1
+FROM alpine:3.24
 
 LABEL org.opencontainers.image.authors="admin@klausk.xyz" \
       org.opencontainers.image.title="bind9" \
@@ -22,7 +22,8 @@ ENV BIND_UID="${BIND_UID}" \
     SKIP_CONFIG_TEST=false \
     BIND_CONFIG=/etc/bind/named.conf
 
-RUN apk add --no-cache \
+RUN apk upgrade --no-cache \
+    && apk add --no-cache \
         bind \
         bind-tools \
         bind-plugins \
