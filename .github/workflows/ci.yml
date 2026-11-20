@@ -184,14 +184,14 @@ jobs:
       - name: Create and push multi-arch manifest
         env:
           DOCKER_METADATA_OUTPUT_JSON: ${{ steps.meta.outputs.json }}
-          IMAGE_DESCRIPTION: ISC BIND 9 DNS (Do53 / DoT / DoH capable)
         run: |
           set -euo pipefail
           jq -cr '.tags[]' <<< "$DOCKER_METADATA_OUTPUT_JSON" | while read -r tag; do
             repo="${tag%%:*}"
             name="${tag##*:}"
+            # buildx 0.39 rejects index annotations on Docker manifest lists.
+            # oci-mediatypes=false stays so Podman can read HEALTHCHECK.
             docker buildx imagetools create \
-              --annotation "index:org.opencontainers.image.description=${IMAGE_DESCRIPTION}" \
               -t "$tag" \
               "${repo}:${name}-amd64" \
               "${repo}:${name}-arm64"
